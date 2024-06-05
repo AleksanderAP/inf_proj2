@@ -43,6 +43,7 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
         self.pushButton_dh_calculate.clicked.connect(self.calculate_dh)
+        self.pushButton_area_calculate.clicked.connect(self.calculate_area)
         
     def calculate_dh(self):
         current_layer = self.mMapLayerComboBox.currentLayer()
@@ -51,3 +52,12 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         h_2 = float(selected_features[1]['wysokosc'])
         d_h = h_2 - h_1
         self.label_dh_result.setText(f'{d_h} m')
+        
+    def calculate_area(self):
+        current_layer_area = self.mMapLayerComboBox_area.currentLayer()
+        selected_features_area = current_layer_area.selectedFeatures()
+        
+       ############################
+       #area = (...)
+        
+        self.label_area_result.setText(f'{area} m^2')
