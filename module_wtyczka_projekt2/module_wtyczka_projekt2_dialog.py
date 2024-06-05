@@ -57,7 +57,18 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         current_layer_area = self.mMapLayerComboBox_area.currentLayer()
         selected_features_area = current_layer_area.selectedFeatures()
         
-       ############################
-       #area = (...)
+        x = 
+        y = 
+        
+        n = len(x)
+        if n != len(y):
+            raise ValueError("Listy x i y muszą mieć taką samą długość.")
+        
+        area = 0.0
+        for i in range(n):
+            area += x[i] * (y[(i + 1) % n] - y[(i - 1) % n])
+            
+        return 0.5 * abs(area)
+       
         
         self.label_area_result.setText(f'{area} m^2')
