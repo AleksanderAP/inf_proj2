@@ -23,9 +23,12 @@
 """
 
 import os
-
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
+from qgis.core import QgsMessageLog, Qgis, QgsProject, QgsPointXY
+from qgis.utils import iface
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QDialog, QApplication, QMessageBox
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -47,28 +50,93 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         
     def calculate_dh(self):
         current_layer = self.mMapLayerComboBox.currentLayer()
+        if current_layer is None:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Nie wybrano warstwy')
+            msg.setInformativeText("Proszę wybrać warstwę do obliczeń")
+            msg.setWindowTitle("Brak danych")
+            msg.exec_()
+            return
+        
         selected_features = current_layer.selectedFeatures()
-        h_1 = float(selected_features[0]['wysokosc'])
-        h_2 = float(selected_features[1]['wysokosc'])
-        d_h = h_2 - h_1
-        self.label_dh_result.setText(f'{d_h} m')
+        QgsMessageLog.logMessage(f'Liczba zaznaczonych punktów: {len(selected_features)}', level=Qgis.Info)
+        
+        if len(selected_features) != 2:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Nieodpowiednia ilość punktów.')
+            msg.setInformativeText("Nieprawidłowa ilość danych")
+            msg.setWindowTitle("Za mało danych")
+            msg.exec_()
+            return
+        
+        if len(selected_features) == 2:
+            # Debugging: List all attribute names
+            attrs = selected_features[0].fields().names()
+            QgsMessageLog.logMessage(f'Atrybuty: {attrs}', level=Qgis.Info)
+            
+            if 'wysokosc' not in attrs:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setText('Brak atrybutu "wysokosc" w danych.')
+                msg.setInformativeText("Upewnij się, że warstwa zawiera atrybut 'wysokosc'.")
+                msg.setWindowTitle("Błąd danych")
+                msg.exec_()
+                return
+            
+            h_1 = float(selected_features[0]['wysokosc'])
+            h_2 = float(selected_features[1]['wysokosc'])
+            d_h = h_2 - h_1
+            dh = round(d_h, 3)
+            
+            self.label_dh_result.setText(f'{dh} m')
+            QgsMessageLog.logMessage(f'Różnica wysokości między wybranymi punktami wynosi: {dh} m', level=Qgis.Success)
+            iface.messageBar().pushMessage('Przewyższenie', 'Obliczono wysokość pomiędzy punktami', level=Qgis.Success)
         
     def calculate_area(self):
         current_layer_area = self.mMapLayerComboBox_area.currentLayer()
+        if current_layer_area is None:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Nie wybrano warstwy')
+            msg.setInformativeText("Proszę wybrać warstwę do obliczeń")
+            msg.setWindowTitle("Brak danych")
+            msg.exec_()
+            return
+            
         selected_features_area = current_layer_area.selectedFeatures()
+        if len(selected_features_area) < 3:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Zaznacz co najmniej 3 punkty.')
+            msg.setInformativeText("Nieprawidłowa ilość danych")
+            msg.setWindowTitle("Za mało danych")
+            msg.exec_()
+            return
         
-        x = 
-        y = 
+        coords_x = []
+        coords_y = []
         
-        n = len(x)
-        if n != len(y):
-            raise ValueError("Listy x i y muszą mieć taką samą długość.")
+        for point in selected_features_area:
+            geo = point.geometry()
+            x = float(geo.asPoint().x())
+            y = float(geo.asPoint().y())
+            coords_x.append(x)
+            coords_y.append(y)
+        
+        points_xy = []
+        for i in range(len(coords_x)):
+            points_xy.append([coords_x[i], coords_y[i]])
         
         area = 0.0
+        n = len(points_xy)
         for i in range(n):
-            area += x[i] * (y[(i + 1) % n] - y[(i - 1) % n])
-            
-        return 0.5 * abs(area)
-       
+            area += points_xy[i][0] * (points_xy[(i + 1) % n][1] - points_xy[(i - 1) % n][1])
+        area = 0.5 * abs(area)
+        area = round(area, 3)
         
         self.label_area_result.setText(f'{area} m^2')
+        QgsMessageLog.logMessage(f'Pole powierzchni wynosi: {area} m^2', level=Qgis.Success)
+        iface.messageBar().pushMessage("Pole powierzchni", 'Obliczono pole powierzchni', level=Qgis.Success)
+        
