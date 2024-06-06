@@ -47,7 +47,7 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         self.setupUi(self)
         self.pushButton_dh_calculate.clicked.connect(self.calculate_dh)
         self.pushButton_area_calculate.clicked.connect(self.calculate_area)
-        
+            
     def calculate_dh(self):
         current_layer = self.mMapLayerComboBox.currentLayer()
         if current_layer is None:
@@ -58,42 +58,38 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
             msg.setWindowTitle("Brak danych")
             msg.exec_()
             return
-        
+    
         selected_features = current_layer.selectedFeatures()
-        QgsMessageLog.logMessage(f'Liczba zaznaczonych punktów: {len(selected_features)}', level=Qgis.Info)
-        
+    
         if len(selected_features) != 2:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Warning)
             msg.setText('Nieodpowiednia ilość punktów.')
-            msg.setInformativeText("Nieprawidłowa ilość danych")
+            msg.setInformativeText("Proszę zaznaczyć dokładnie dwa punkty")
             msg.setWindowTitle("Za mało danych")
             msg.exec_()
             return
-        
-        if len(selected_features) == 2:
-            # Debugging: List all attribute names
-            attrs = selected_features[0].fields().names()
-            QgsMessageLog.logMessage(f'Atrybuty: {attrs}', level=Qgis.Info)
-            
-            if 'wysokosc' not in attrs:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Warning)
-                msg.setText('Brak atrybutu "wysokosc" w danych.')
-                msg.setInformativeText("Upewnij się, że warstwa zawiera atrybut 'wysokosc'.")
-                msg.setWindowTitle("Błąd danych")
-                msg.exec_()
-                return
-            
+    
+        try:
             h_1 = float(selected_features[0]['wysokosc'])
             h_2 = float(selected_features[1]['wysokosc'])
             d_h = h_2 - h_1
             dh = round(d_h, 3)
-            
-            self.label_dh_result.setText(f'{dh} m')
-            QgsMessageLog.logMessage(f'Różnica wysokości między wybranymi punktami wynosi: {dh} m', level=Qgis.Success)
-            iface.messageBar().pushMessage('Przewyższenie', 'Obliczono wysokość pomiędzy punktami', level=Qgis.Success)
+        except (ValueError, KeyError) as e:
+            QgsMessageLog.logMessage(f'Błąd podczas odczytu wartości "wysokosc" lub konwersji na float: {e}', level=Qgis.Critical)
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText('Błąd danych')
+            msg.setInformativeText("Wystąpił problem z odczytem wartości atrybutów.")
+            msg.setWindowTitle("Błąd danych")
+            msg.exec_()
+            return
         
+        self.label_dh_result.setText(f'{dh} m')
+        QgsMessageLog.logMessage(f'Różnica wysokości między wybranymi punktami wynosi: {dh} m', level=Qgis.Success)
+        iface.messageBar().pushMessage('Przewyższenie', 'Obliczono wysokość pomiędzy punktami', level=Qgis.Success)
+
+
     def calculate_area(self):
         current_layer_area = self.mMapLayerComboBox_area.currentLayer()
         if current_layer_area is None:
