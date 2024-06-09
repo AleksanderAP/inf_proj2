@@ -39,12 +39,11 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(wtyczka_projekt2Dialog, self).__init__(parent)
-        # Set up the user interface from Designer through FORM_CLASS.
-        # After self.setupUi() you can access any designer object by doing
-        # self.<objectname>, and you can use autoconnect slots - see
-        # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
-        # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        
+        # jednostki pola
+        self.ComboBox_area_format.addItems(["m2", "ary", "hektary"])
+        
         self.pushButton_dh_calculate.clicked.connect(self.calculate_dh)
         self.pushButton_area_calculate.clicked.connect(self.calculate_area)
             
@@ -96,11 +95,11 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Warning)
             msg.setText('Nie wybrano warstwy')
-            msg.setInformativeText("Proszę wybrać warstwę do obliczeń")
+            msg.setInformativeText("Wybierz warstwę do obliczeń")
             msg.setWindowTitle("Brak danych")
             msg.exec_()
             return
-            
+        
         selected_features_area = current_layer_area.selectedFeatures()
         if len(selected_features_area) < 3:
             msg = QMessageBox()
@@ -121,18 +120,26 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
             coords_x.append(x)
             coords_y.append(y)
         
-        points_xy = []
-        for i in range(len(coords_x)):
-            points_xy.append([coords_x[i], coords_y[i]])
+        points_xy = list(zip(coords_x, coords_y))
         
         area = 0.0
         n = len(points_xy)
         for i in range(n):
             area += points_xy[i][0] * (points_xy[(i + 1) % n][1] - points_xy[(i - 1) % n][1])
         area = 0.5 * abs(area)
+        
+        area_unit = self.ComboBox_area_format.currentText()
+        if area_unit == 'ary':
+            area /= 100  # Przeliczanie m² na ary
+            area_unit = 'a'
+        elif area_unit == 'hektary':
+            area /= 10000  # Przeliczanie m² na hektary
+            area_unit = 'ha'
+        else:
+            area_unit = 'm²'
+
         area = round(area, 3)
         
-        self.label_area_result.setText(f'{area} m^2')
-        QgsMessageLog.logMessage(f'Pole powierzchni wynosi: {area} m^2', level=Qgis.Success)
-        iface.messageBar().pushMessage("Pole powierzchni", 'Obliczono pole powierzchni', level=Qgis.Success)
-        
+        self.label_area_result.setText(f'{area} {area_unit}')
+        QgsMessageLog.logMessage(f'Pole powierzchni wynosi: {area} {area_unit}', level=Qgis.Success)
+        iface.messageBar().pushMessage("Pole powierzchni", f'Obliczono pole powierzchni: {area} {area_unit}', level=Qgis.Success)
