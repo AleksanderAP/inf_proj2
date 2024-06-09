@@ -25,7 +25,7 @@
 import os
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
-from qgis.core import QgsMessageLog, Qgis, QgsProject, QgsPointXY
+from qgis.core import QgsMessageLog, Qgis, QgsProject, QgsPointXY, QgsGeometry, QgsFeature, QgsVectorLayer
 from qgis.utils import iface
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QDialog, QApplication, QMessageBox
@@ -39,6 +39,11 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(wtyczka_projekt2Dialog, self).__init__(parent)
+        # Set up the user interface from Designer through FORM_CLASS.
+        # After self.setupUi() you can access any designer object by doing
+        # self.<objectname>, and you can use autoconnect slots - see
+        # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
+        # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
         
         # jednostki pola
@@ -46,6 +51,7 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         
         self.pushButton_dh_calculate.clicked.connect(self.calculate_dh)
         self.pushButton_area_calculate.clicked.connect(self.calculate_area)
+        self.pushButton_clear_selection.clicked.connect(self.clear_selection)
             
     def calculate_dh(self):
         current_layer = self.mMapLayerComboBox.currentLayer()
@@ -130,10 +136,10 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         
         area_unit = self.ComboBox_area_format.currentText()
         if area_unit == 'ary':
-            area /= 100  # Przeliczanie m² na ary
+            area /= 100  # Przelicza m2 na ary
             area_unit = 'a'
         elif area_unit == 'hektary':
-            area /= 10000  # Przeliczanie m² na hektary
+            area /= 10000  # Przelicza m2 na hektary
             area_unit = 'ha'
         else:
             area_unit = 'm²'
@@ -143,3 +149,35 @@ class wtyczka_projekt2Dialog(QtWidgets.QDialog, FORM_CLASS):
         self.label_area_result.setText(f'{area} {area_unit}')
         QgsMessageLog.logMessage(f'Pole powierzchni wynosi: {area} {area_unit}', level=Qgis.Success)
         iface.messageBar().pushMessage("Pole powierzchni", f'Obliczono pole powierzchni: {area} {area_unit}', level=Qgis.Success)
+
+        # poligon porównania
+        new_layer = QgsVectorLayer("Polygon?crs=EPSG:2180", "polygon_area_ref", "memory")
+        points = [QgsPointXY(x, y) for x, y in points_xy]
+        polygon_geom = QgsGeometry.fromPolygonXY([[point for point in points]])
+        new_feature = QgsFeature()
+        new_feature.setGeometry(polygon_geom)
+        new_layer.dataProvider().addFeatures([new_feature])
+        
+        # nowa warstwa tymczasowa
+        QgsProject.instance().addMapLayer(new_layer)
+        
+        # sprawdzenie pola poligonu
+        for feat in new_layer.getFeatures():
+            area_geom = feat.geometry().area()
+            QgsMessageLog.logMessage(f'Pole powierzchni poligonu porównania wynosi: {area_geom:.3f}', level=Qgis.Success)
+            self.label_area_result_ref.setText(f'{area:.3f} {area_unit}')
+            
+    def clear_selection(self):
+        iface.messageBar().clearWidgets()
+        iface.messageBar().pushMessage("", level=Qgis.Success)
+        
+        selected_layer = self.mMapLayerComboBox.currentLayer()
+        if selected_layer:
+            selected_layer.removeSelection()
+        else:
+            QgsMessageLog.logMessage("Nie wybrano warstwy.", level=Qgis.Warning)
+            
+        # usuwa warstwę tymczasową z polem poligonu
+        project = QgsProject.instance()
+        if project.mapLayersByName("polygon_area_ref"):
+            project.removeMapLayer(project.mapLayersByName("polygon_area_ref")[0])
